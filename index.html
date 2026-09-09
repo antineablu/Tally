@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>Tally</title>
+
+<!-- Home-screen install (Android Chrome) -->
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tally">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Cpolyline points='10,20 24,30 38,26 54,46' fill='none' stroke='%236FB894' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Cpolyline points='10,20 24,30 38,26 54,46' fill='none' stroke='%236FB894' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Tally%22%2C%22short_name%22%3A%22Tally%22%2C%22start_url%22%3A%22.%22%2C%22scope%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22portrait%22%2C%22background_color%22%3A%22%23000000%22%2C%22theme_color%22%3A%22%23000000%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%253D%2527http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%2527%2520viewBox%253D%25270%25200%252064%252064%2527%253E%253Crect%2520width%253D%252764%2527%2520height%253D%252764%2527%2520rx%253D%252714%2527%2520fill%253D%2527%2523000%2527%252F%253E%253Cpolyline%2520points%253D%252710%252C20%252024%252C30%252038%252C26%252054%252C46%2527%2520fill%253D%2527none%2527%2520stroke%253D%2527%25236FB894%2527%2520stroke-width%253D%25274%2527%2520stroke-linecap%253D%2527round%2527%2520stroke-linejoin%253D%2527round%2527%252F%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%2C%22purpose%22%3A%22any%22%7D%5D%7D">
+
+<style>
+  :root{
+    --bg:#000000;
+    --surface:#0E0E11;
+    --surface-2:#17171B;
+    --surface-3:#202027;
+    --hairline:#26262E;
+    --text:#F2F2EF;
+    --muted:#7C7C86;
+    --muted-2:#55555E;
+    --good:#6FB894;   /* trend down / progress */
+    --warn:#E0A05A;   /* trend up */
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Roboto Mono", "DejaVu Sans Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, system-ui, sans-serif;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bot: env(safe-area-inset-bottom, 0px);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:var(--sans);
+    font-size:16px; line-height:1.4;
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior-y:contain;
+  }
+  #app{
+    max-width:520px; margin:0 auto; min-height:100%;
+    padding: calc(var(--safe-top) + 14px) 16px calc(var(--safe-bot) + 28px);
+    display:flex; flex-direction:column;
+  }
+
+  /* ---------- Header ---------- */
+  header{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+  .date{font-size:13px; letter-spacing:.02em; color:var(--muted);}
+  .date b{color:var(--text); font-weight:600;}
+  .icon-btn{
+    width:40px; height:40px; border-radius:12px; border:1px solid var(--hairline);
+    background:var(--surface); color:var(--text);
+    display:grid; place-items:center; cursor:pointer;
+  }
+  .icon-btn:active{background:var(--surface-2);}
+
+  /* ---------- Segmented ---------- */
+  .seg{display:flex; gap:4px; padding:4px; background:var(--surface); border:1px solid var(--hairline); border-radius:14px;}
+  .seg.full{width:100%; margin-bottom:18px;}
+  .seg button{
+    flex:1; border:none; background:transparent; color:var(--muted);
+    font-family:var(--sans); font-size:14px; font-weight:600; letter-spacing:.01em;
+    padding:9px 10px; border-radius:10px; cursor:pointer; transition:color .15s;
+  }
+  .seg button[aria-selected="true"]{background:var(--surface-3); color:var(--text);}
+  .seg.small button{font-size:12px; padding:7px 8px; font-weight:500;}
+
+  /* ---------- Today summary strip ---------- */
+  .summary{
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding:2px 4px 16px; border-bottom:1px solid var(--hairline); margin-bottom:16px;
+  }
+  .summary .lbl{font-size:12px; color:var(--muted); text-transform:none; letter-spacing:.02em;}
+  .summary .val{font-family:var(--mono); font-size:15px; color:var(--text);}
+  .summary .val .u{color:var(--muted); font-size:12px; margin-left:3px;}
+
+  /* ---------- Counter cards ---------- */
+  #cards{display:flex; flex-direction:column; gap:12px;}
+  .card{
+    background:var(--surface); border:1px solid var(--hairline);
+    border-radius:20px; padding:16px 14px 14px; position:relative;
+  }
+  .card .head{display:flex; align-items:center; gap:9px; padding:0 4px; margin-bottom:12px;}
+  .dot{width:9px; height:9px; border-radius:50%; flex:none;}
+  .card .name{font-size:15px; font-weight:600; letter-spacing:.01em;}
+  .card .tag{font-size:13px; color:var(--muted); font-weight:400;}
+  .card .edit{margin-left:auto; color:var(--muted-2); background:none; border:none; cursor:pointer; padding:4px; font-size:18px; line-height:1;}
+  .card .edit:active{color:var(--text);}
+
+  .row{display:grid; grid-template-columns:76px 1fr 76px; align-items:center; gap:10px;}
+  .step{
+    height:88px; border-radius:16px; border:1px solid var(--hairline);
+    background:var(--surface-2); color:var(--text);
+    font-family:var(--mono); font-size:22px; font-weight:500;
+    display:grid; place-items:center; cursor:pointer; user-select:none;
+    transition:transform .06s ease, background .12s;
+  }
+  .step:active{transform:scale(.96); background:var(--surface-3);}
+  .step.plus{font-size:26px;}
+  .count-wrap{text-align:center;}
+  .count{
+    font-family:var(--mono); font-weight:500; font-size:clamp(46px, 15vw, 60px);
+    line-height:1; letter-spacing:-.02em; font-variant-numeric:tabular-nums;
+  }
+  .count.zero{color:var(--muted-2);}
+  .count.pulse{animation:pop .28s ease;}
+  @keyframes pop{0%{transform:scale(1);}35%{transform:scale(1.14);}100%{transform:scale(1);}}
+  .sub{font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:6px; min-height:13px;}
+
+  .add-counter{
+    margin-top:16px; width:100%; padding:15px; border-radius:16px;
+    border:1px dashed var(--hairline); background:transparent; color:var(--muted);
+    font-family:var(--sans); font-size:14px; font-weight:600; cursor:pointer;
+  }
+  .add-counter:active{background:var(--surface); color:var(--text);}
+
+  /* ---------- Trend view ---------- */
+  .hero{padding:6px 4px 18px; border-bottom:1px solid var(--hairline); margin-bottom:16px;}
+  .hero .delta{font-family:var(--mono); font-size:34px; font-weight:500; letter-spacing:-.01em; line-height:1;}
+  .hero .delta .arrow{font-size:26px; margin-right:4px;}
+  .hero .delta.good{color:var(--good);}
+  .hero .delta.up{color:var(--warn);}
+  .hero .delta.flat{color:var(--text);}
+  .hero .cap{font-size:13px; color:var(--muted); margin-top:8px;}
+  .hero .stats{display:flex; gap:22px; margin-top:14px;}
+  .hero .stat .n{font-family:var(--mono); font-size:18px;}
+  .hero .stat .k{font-size:11px; color:var(--muted); margin-top:2px;}
+
+  .chart-wrap{position:relative; margin:4px 0 4px; min-height:200px;}
+  svg.chart{display:block; width:100%; height:220px; overflow:visible;}
+  .chart-empty{
+    height:220px; display:grid; place-items:center; text-align:center;
+    color:var(--muted); font-size:14px; border:1px dashed var(--hairline); border-radius:16px; padding:20px;
+  }
+  .controls{display:flex; flex-direction:column; gap:8px; margin-top:14px;}
+  .legend{display:flex; flex-wrap:wrap; gap:14px; margin-top:16px; padding-top:16px; border-top:1px solid var(--hairline);}
+  .legend .item{display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted);}
+  .legend .sw{width:12px; height:3px; border-radius:2px;}
+  .toggle-line{display:flex; align-items:center; justify-content:space-between; padding:12px 4px 0; font-size:13px; color:var(--muted);}
+  .switch{position:relative; width:44px; height:26px; flex:none;}
+  .switch input{opacity:0; width:0; height:0;}
+  .switch .track{position:absolute; inset:0; background:var(--surface-3); border-radius:20px; transition:background .15s;}
+  .switch .knob{position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:var(--muted); transition:transform .15s, background .15s;}
+  .switch input:checked + .track{background:#2c4a3c;}
+  .switch input:checked + .track .knob{transform:translateX(18px); background:var(--good);}
+
+  /* ---------- Modal / sheet ---------- */
+  .scrim{position:fixed; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .2s; z-index:40;}
+  .scrim.open{opacity:1; pointer-events:auto;}
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:50;
+    max-width:520px; margin:0 auto;
+    background:var(--surface); border:1px solid var(--hairline); border-bottom:none;
+    border-radius:24px 24px 0 0; padding:8px 18px calc(var(--safe-bot) + 22px);
+    transform:translateY(101%); transition:transform .26s cubic-bezier(.3,.8,.3,1);
+    max-height:88vh; overflow-y:auto;
+  }
+  .sheet.open{transform:translateY(0);}
+  .grab{width:40px; height:4px; border-radius:3px; background:var(--surface-3); margin:8px auto 14px;}
+  .sheet h2{font-size:17px; margin:0 0 4px; font-weight:600;}
+  .sheet .hint{font-size:13px; color:var(--muted); margin:0 0 18px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:12px; color:var(--muted); margin-bottom:7px;}
+  .field input[type=text], .field input[type=number]{
+    width:100%; background:var(--surface-2); border:1px solid var(--hairline); color:var(--text);
+    border-radius:12px; padding:13px 14px; font-size:16px; font-family:var(--sans);
+  }
+  .field input:focus{outline:none; border-color:var(--muted);}
+  .swatches{display:flex; gap:10px; flex-wrap:wrap;}
+  .swatch{width:34px; height:34px; border-radius:50%; cursor:pointer; border:2px solid transparent;}
+  .swatch[aria-selected="true"]{border-color:var(--text);}
+  .btn{
+    width:100%; padding:15px; border-radius:14px; border:none; cursor:pointer;
+    font-family:var(--sans); font-size:15px; font-weight:600; margin-top:6px;
+  }
+  .btn.primary{background:var(--text); color:#000;}
+  .btn.primary:active{opacity:.85;}
+  .btn.ghost{background:var(--surface-2); color:var(--text); border:1px solid var(--hairline);}
+  .btn.danger{background:transparent; color:#d9776f; border:1px solid var(--hairline);}
+  .menu-list{display:flex; flex-direction:column;}
+  .menu-list button{
+    text-align:left; background:none; border:none; border-bottom:1px solid var(--hairline);
+    color:var(--text); font-family:var(--sans); font-size:15px; padding:16px 4px; cursor:pointer;
+    display:flex; align-items:center; gap:12px;
+  }
+  .menu-list button:last-child{border-bottom:none;}
+  .menu-list button:active{color:var(--muted);}
+  .menu-list button .m-ico{width:22px; text-align:center; color:var(--muted); font-size:16px;}
+
+  .ce-list{display:flex; flex-direction:column; gap:10px; margin-bottom:16px;}
+  .ce-item{display:flex; align-items:center; gap:12px; padding:12px; background:var(--surface-2); border:1px solid var(--hairline); border-radius:14px; cursor:pointer;}
+  .ce-item .ce-name{font-size:14px; font-weight:600;}
+  .ce-item .ce-tag{font-size:12px; color:var(--muted);}
+  .ce-item .chev{margin-left:auto; color:var(--muted-2);}
+
+  .toast{
+    position:fixed; bottom:calc(var(--safe-bot) + 24px); left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--surface-3); color:var(--text); border:1px solid var(--hairline);
+    padding:11px 18px; border-radius:12px; font-size:13px; opacity:0; pointer-events:none;
+    transition:opacity .2s, transform .2s; z-index:60;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  .hidden{display:none !important;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="date" id="dateLabel"></div>
+    <button class="icon-btn" id="menuBtn" aria-label="Menu">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
+    </button>
+  </header>
+
+  <div class="seg full" role="tablist">
+    <button id="tabToday" role="tab" aria-selected="true">Today</button>
+    <button id="tabTrend" role="tab" aria-selected="false">Trend</button>
+  </div>
+
+  <!-- TODAY -->
+  <section id="viewToday">
+    <div class="summary">
+      <span class="lbl">Total today</span>
+      <span class="val" id="todayTotal">00</span>
+    </div>
+    <div id="cards"></div>
+    <button class="add-counter" id="addBtn">+ New counter</button>
+  </section>
+
+  <!-- TREND -->
+  <section id="viewTrend" class="hidden">
+    <div class="hero" id="hero"></div>
+    <div class="chart-wrap" id="chartWrap"></div>
+    <div class="controls">
+      <div class="seg small full" id="rangeSeg" role="tablist">
+        <button data-range="7" role="tab">7d</button>
+        <button data-range="14" role="tab" aria-selected="true">14d</button>
+        <button data-range="30" role="tab">30d</button>
+        <button data-range="all" role="tab">All</button>
+      </div>
+      <div class="seg small full" id="metricSeg" role="tablist">
+        <button data-metric="count" role="tab" aria-selected="true">Count</button>
+        <button data-metric="mg" role="tab">Nicotine (mg)</button>
+      </div>
+      <div class="toggle-line">
+        <span>Show each product</span>
+        <label class="switch"><input type="checkbox" id="perToggle"><span class="track"><span class="knob"></span></span></label>
+      </div>
+    </div>
+    <div class="legend hidden" id="legend"></div>
+  </section>
+</div>
+
+<!-- Scrim + sheet -->
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="importInput" accept="application/json,.json" class="hidden">
+
+<script>
+"use strict";
+
+/* ============ Storage (localStorage with in-memory fallback) ============ */
+const KEY = "tally-v1";
+const _mem = {};
+function load(){
+  try{ const r = localStorage.getItem(KEY); if(r) return JSON.parse(r); }catch(e){}
+  return _mem[KEY] || null;
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch(e){ _mem[KEY] = JSON.parse(JSON.stringify(state)); }
+}
+
+/* ============ State ============ */
+const PALETTE = ["#C9A24B","#7E9CD8","#C77E9C","#6FB894","#D98E6A","#8E8ED8","#67B7C4","#B9B36B"];
+const uid = () => Math.random().toString(36).slice(2,9);
+
+function defaultState(){
+  return {
+    version:1,
+    counters:[
+      {id:uid(), name:"Snus", tag:"strength 3", color:PALETTE[0], mg:null},
+      {id:uid(), name:"Snus", tag:"strength 2", color:PALETTE[1], mg:null},
+      {id:uid(), name:"Snus", tag:"strength 1", color:PALETTE[2], mg:null},
+      {id:uid(), name:"Cigarette", tag:"", color:PALETTE[3], mg:null},
+    ],
+    logs:{},                       // logs["YYYY-MM-DD"][counterId] = n
+    settings:{ range:14, metric:"count", perProduct:false }
+  };
+}
+let state = load() || defaultState();
+// safety for older/partial states
+state.settings = Object.assign({range:14, metric:"count", perProduct:false}, state.settings||{});
+state.logs = state.logs || {};
+
+/* ============ Date + count helpers ============ */
+function dateKey(d=new Date()){
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function keyToDate(k){ const [y,m,d]=k.split("-").map(Number); return new Date(y,m-1,d); }
+const today = () => dateKey();
+
+function countOf(id, key=today()){ return (state.logs[key] && state.logs[key][id]) || 0; }
+function setCount(id, v, key=today()){
+  if(!state.logs[key]) state.logs[key] = {};
+  state.logs[key][id] = Math.max(0, v);
+  if(state.logs[key][id]===0) delete state.logs[key][id];
+  if(Object.keys(state.logs[key]).length===0) delete state.logs[key];
+  save();
+}
+function bump(id, delta){ setCount(id, countOf(id)+delta); }
+const pad2 = n => String(n).padStart(2,"0");
+
+/* ============ DOM refs ============ */
+const $ = s => document.querySelector(s);
+const cardsEl = $("#cards");
+const nodeRefs = {}; // id -> {countEl, subEl}
+let currentView = "today";
+
+/* ============ Header / init render ============ */
+function renderDate(){
+  const d = new Date();
+  const s = d.toLocaleDateString(undefined,{weekday:"short", day:"numeric", month:"short"});
+  $("#dateLabel").innerHTML = "<b>"+s+"</b>";
+}
+
+/* ============ TODAY view ============ */
+function renderToday(){
+  cardsEl.innerHTML = "";
+  for(const c of state.counters){
+    const card = document.createElement("div");
+    card.className = "card";
+    const n = countOf(c.id);
+    card.innerHTML = `
+      <div class="head">
+        <span class="dot" style="background:${c.color}"></span>
+        <span class="name">${esc(c.name)}</span>
+        ${c.tag ? `<span class="tag">${esc(c.tag)}</span>` : ""}
+        <button class="edit" aria-label="Edit ${esc(c.name)}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>
+      </div>
+      <div class="row">
+        <button class="step minus" aria-label="Subtract one">−1</button>
+        <div class="count-wrap">
+          <div class="count ${n===0?"zero":""}">${pad2(n)}</div>
+          <div class="sub">${subLine(c,n)}</div>
+        </div>
+        <button class="step plus" aria-label="Add one">+1</button>
+      </div>`;
+    const countEl = card.querySelector(".count");
+    const subEl = card.querySelector(".sub");
+    nodeRefs[c.id] = {countEl, subEl};
+    card.querySelector(".plus").addEventListener("click", ()=>onBump(c,+1));
+    card.querySelector(".minus").addEventListener("click", ()=>onBump(c,-1));
+    card.querySelector(".edit").addEventListener("click", ()=>openCounterForm(c));
+    cardsEl.appendChild(card);
+  }
+  updateTodayTotal();
+}
+function subLine(c,n){
+  if(c.mg){ return (n*c.mg).toFixed(n*c.mg%1?1:0)+" mg today"; }
+  return "&nbsp;";
+}
+function onBump(c, delta){
+  const before = countOf(c.id);
+  if(delta<0 && before===0) return;
+  bump(c.id, delta);
+  const n = countOf(c.id);
+  const ref = nodeRefs[c.id];
+  if(ref){
+    ref.countEl.textContent = pad2(n);
+    ref.countEl.classList.toggle("zero", n===0);
+    ref.countEl.classList.remove("pulse"); void ref.countEl.offsetWidth; ref.countEl.classList.add("pulse");
+    ref.subEl.innerHTML = subLine(c,n);
+  }
+  updateTodayTotal();
+  if(navigator.vibrate) navigator.vibrate(delta>0?12:7);
+}
+function updateTodayTotal(){
+  let total=0;
+  for(const c of state.counters) total += countOf(c.id);
+  $("#todayTotal").textContent = pad2(total);
+}
+
+/* ============ TREND view ============ */
+function daysInRange(){
+  const r = state.settings.range;
+  let start;
+  const end = new Date();
+  if(r === "all"){
+    const keys = Object.keys(state.logs).sort();
+    start = keys.length ? keyToDate(keys[0]) : new Date();
+  } else {
+    start = new Date(); start.setDate(start.getDate() - (Number(r)-1));
+  }
+  const out=[];
+  const cur = new Date(start.getFullYear(),start.getMonth(),start.getDate());
+  while(cur <= end){ out.push(dateKey(cur)); cur.setDate(cur.getDate()+1); }
+  return out;
+}
+function dayValue(key, id){ // for one counter, in current metric
+  const n = countOf(id, key);
+  if(state.settings.metric==="mg"){ const c = state.counters.find(x=>x.id===id); return n * (c&&c.mg?c.mg:0); }
+  return n;
+}
+function dayTotal(key){ let t=0; for(const c of state.counters) t += dayValue(key, c.id); return t; }
+
+function renderTrend(){
+  const keys = daysInRange();
+  const totals = keys.map(dayTotal);
+  renderHero(keys, totals);
+  renderChart(keys, totals);
+  renderLegend();
+}
+
+function renderHero(keys, totals){
+  const hero = $("#hero");
+  const unit = state.settings.metric==="mg" ? "mg" : "";
+  const t = totals.length ? totals[totals.length-1] : 0;
+
+  // last 7 vs previous 7 (uses real logged days regardless of selected range)
+  const last7 = sumRecent(0,7), prev7 = sumRecent(7,14);
+  let deltaHtml, cap;
+  if(prev7===0 && last7===0){
+    deltaHtml = `<div class="delta flat">—</div>`;
+    cap = "Log a few days to see your trend.";
+  } else if(prev7===0){
+    deltaHtml = `<div class="delta flat">new</div>`;
+    cap = "This is your first week of data.";
+  } else {
+    const pct = Math.round((last7-prev7)/prev7*100);
+    if(pct < 0){ deltaHtml = `<div class="delta good"><span class="arrow">▼</span>${Math.abs(pct)}%</div>`; cap="down vs the previous 7 days — keep going."; }
+    else if(pct > 0){ deltaHtml = `<div class="delta up"><span class="arrow">▲</span>${pct}%</div>`; cap="up vs the previous 7 days."; }
+    else { deltaHtml = `<div class="delta flat">0%</div>`; cap="level with the previous 7 days."; }
+  }
+  const avg7 = (last7/7);
+  hero.innerHTML = `
+    ${deltaHtml}
+    <div class="cap">${cap}</div>
+    <div class="stats">
+      <div class="stat"><div class="n">${fmt(t)}${unit?`<span style="color:var(--muted);font-size:12px"> ${unit}</span>`:""}</div><div class="k">today</div></div>
+      <div class="stat"><div class="n">${fmt(avg7)}</div><div class="k">7-day avg</div></div>
+      <div class="stat"><div class="n">${Object.keys(state.logs).length}</div><div class="k">days logged</div></div>
+    </div>`;
+}
+function sumRecent(offsetDays, untilDays){ // sum current-metric totals for [today-until+1 ... today-offset]
+  let s=0;
+  for(let i=offsetDays; i<untilDays; i++){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    s += dayTotal(dateKey(d));
+  }
+  return s;
+}
+
+function renderChart(keys, totals){
+  const wrap = $("#chartWrap");
+  const hasData = totals.some(v=>v>0);
+  const metricMg = state.settings.metric==="mg";
+  const mgConfigured = state.counters.some(c=>c.mg);
+
+  if(metricMg && !mgConfigured){
+    wrap.innerHTML = `<div class="chart-empty">No nicotine values set yet.<br>Open a counter → add <b>nicotine per unit (mg)</b> to see your dose curve.</div>`;
+    return;
+  }
+  if(!hasData){
+    wrap.innerHTML = `<div class="chart-empty">Your curve appears here once you start logging.<br>Tap +1 on the Today screen to begin.</div>`;
+    return;
+  }
+
+  const W=500, H=220, padL=30, padR=12, padT=14, padB=26;
+  const iw=W-padL-padR, ih=H-padT-padB;
+  const n=keys.length;
+  const perOn = state.settings.perProduct;
+
+  let max = Math.max(...totals, 1);
+  // when per-product, ensure max covers individual lines too
+  if(perOn){ for(const c of state.counters){ for(const k of keys){ max=Math.max(max, dayValue(k,c.id)); } } }
+  const niceMax = niceCeil(max);
+
+  const x = i => padL + (n===1 ? iw/2 : i*iw/(n-1));
+  const y = v => padT + ih - (v/niceMax)*ih;
+
+  const gy = gridLines(niceMax);
+  let grid="";
+  for(const g of gy){
+    grid += `<line x1="${padL}" y1="${y(g)}" x2="${W-padR}" y2="${y(g)}" stroke="var(--hairline)" stroke-width="1"/>`;
+    grid += `<text x="${padL-6}" y="${y(g)+3}" text-anchor="end" font-family="var(--mono)" font-size="9" fill="var(--muted-2)">${fmt(g)}</text>`;
+  }
+
+  // x labels (a few)
+  let xlab="";
+  const step = Math.max(1, Math.round(n/5));
+  for(let i=0;i<n;i+=step){
+    const d=keyToDate(keys[i]);
+    xlab += `<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="var(--muted-2)">${d.getDate()}/${d.getMonth()+1}</text>`;
+  }
+
+  // per-product thin lines
+  let perLines="";
+  if(perOn){
+    for(const c of state.counters){
+      const pts = keys.map((k,i)=>[x(i), y(dayValue(k,c.id))]);
+      perLines += `<path d="${smooth(pts)}" fill="none" stroke="${c.color}" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>`;
+    }
+  }
+
+  // total line + area
+  const pts = totals.map((v,i)=>[x(i), y(v)]);
+  const line = smooth(pts);
+  const area = line + ` L ${x(n-1)} ${y(0)} L ${x(0)} ${y(0)} Z`;
+  const lastX=x(n-1), lastY=y(totals[n-1]);
+
+  wrap.innerHTML = `
+  <svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Usage trend">
+    <defs>
+      <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--good)" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="var(--good)" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${grid}
+    ${xlab}
+    ${perOn ? "" : `<path d="${area}" fill="url(#fill)"/>`}
+    ${perLines}
+    <path d="${line}" fill="none" stroke="${perOn?"var(--text)":"var(--good)"}" stroke-width="${perOn?2.4:2.6}" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${lastX}" cy="${lastY}" r="4" fill="${perOn?"var(--text)":"var(--good)"}"/>
+    <circle cx="${lastX}" cy="${lastY}" r="8" fill="${perOn?"var(--text)":"var(--good)"}" opacity="0.16"/>
+  </svg>`;
+}
+
+function renderLegend(){
+  const leg = $("#legend");
+  if(!state.settings.perProduct){ leg.classList.add("hidden"); return; }
+  leg.classList.remove("hidden");
+  leg.innerHTML = `<div class="item"><span class="sw" style="background:var(--text)"></span>Total</div>` +
+    state.counters.map(c=>`<div class="item"><span class="sw" style="background:${c.color}"></span>${esc(c.name)}${c.tag?" · "+esc(c.tag):""}</div>`).join("");
+}
+
+/* smooth path (Catmull-Rom -> cubic bezier), clamped so it never dips below baseline visually */
+function smooth(p){
+  if(p.length===0) return "";
+  if(p.length===1) return `M ${p[0][0]} ${p[0][1]}`;
+  let d = `M ${p[0][0]} ${p[0][1]}`;
+  for(let i=0;i<p.length-1;i++){
+    const p0=p[i-1]||p[i], p1=p[i], p2=p[i+1], p3=p[i+2]||p[i+1];
+    const c1x=p1[0]+(p2[0]-p0[0])/6, c1y=p1[1]+(p2[1]-p0[1])/6;
+    const c2x=p2[0]-(p3[0]-p1[0])/6, c2y=p2[1]-(p3[1]-p1[1])/6;
+    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2[0]} ${p2[1]}`;
+  }
+  return d;
+}
+function niceCeil(m){
+  if(m<=5) return 5;
+  const pow=Math.pow(10,Math.floor(Math.log10(m)));
+  const n=m/pow;
+  let step;
+  if(n<=1)step=1; else if(n<=2)step=2; else if(n<=5)step=5; else step=10;
+  return Math.ceil(m/(step*pow))*(step*pow);
+}
+function gridLines(max){ const out=[]; const n=4; for(let i=0;i<=n;i++) out.push(Math.round(max*i/n)); return [...new Set(out)]; }
+function fmt(v){ if(v>=100) return String(Math.round(v)); return (Math.round(v*10)/10).toString().replace(/\.0$/,""); }
+
+/* ============ View switching ============ */
+function setView(v){
+  currentView=v;
+  const today = v==="today";
+  $("#viewToday").classList.toggle("hidden", !today);
+  $("#viewTrend").classList.toggle("hidden", today);
+  $("#tabToday").setAttribute("aria-selected", today);
+  $("#tabTrend").setAttribute("aria-selected", !today);
+  if(!today) renderTrend();
+}
+$("#tabToday").addEventListener("click", ()=>setView("today"));
+$("#tabTrend").addEventListener("click", ()=>setView("trend"));
+$("#addBtn").addEventListener("click", ()=>openCounterForm(null));
+
+$("#rangeSeg").addEventListener("click", e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  state.settings.range = b.dataset.range==="all"?"all":Number(b.dataset.range); save();
+  segSelect("#rangeSeg", b); renderTrend();
+});
+$("#metricSeg").addEventListener("click", e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  state.settings.metric = b.dataset.metric; save();
+  segSelect("#metricSeg", b); renderTrend();
+});
+$("#perToggle").addEventListener("change", e=>{
+  state.settings.perProduct = e.target.checked; save(); renderTrend();
+});
+function segSelect(sel, btn){ document.querySelectorAll(sel+" button").forEach(x=>x.setAttribute("aria-selected", x===btn)); }
+
+/* ============ Sheet system ============ */
+const scrim=$("#scrim"), sheet=$("#sheet");
+function openSheet(html){
+  sheet.innerHTML = `<div class="grab"></div>`+html;
+  scrim.classList.add("open"); sheet.classList.add("open");
+}
+function closeSheet(){ scrim.classList.remove("open"); sheet.classList.remove("open"); }
+scrim.addEventListener("click", closeSheet);
+
+/* ----- Main menu ----- */
+$("#menuBtn").addEventListener("click", ()=>{
+  openSheet(`
+    <div class="menu-list">
+      <button data-act="add"><span class="m-ico">+</span> New counter</button>
+      <button data-act="edit"><span class="m-ico">✎</span> Edit counters</button>
+      <button data-act="export"><span class="m-ico">↓</span> Export backup</button>
+      <button data-act="import"><span class="m-ico">↑</span> Import backup</button>
+    </div>`);
+  sheet.querySelectorAll("[data-act]").forEach(b=>b.addEventListener("click", ()=>{
+    const a=b.dataset.act; closeSheet();
+    if(a==="add") setTimeout(()=>openCounterForm(null),120);
+    if(a==="edit") setTimeout(openEditList,120);
+    if(a==="export") exportData();
+    if(a==="import") $("#importInput").click();
+  }));
+});
+
+/* ----- Edit list ----- */
+function openEditList(){
+  openSheet(`
+    <h2>Counters</h2>
+    <p class="hint">Tap one to edit, or add a new one.</p>
+    <div class="ce-list">${state.counters.map(c=>`
+      <div class="ce-item" data-id="${c.id}">
+        <span class="dot" style="background:${c.color}"></span>
+        <div><div class="ce-name">${esc(c.name)}</div>${c.tag?`<div class="ce-tag">${esc(c.tag)}</div>`:""}</div>
+        <span class="chev">›</span>
+      </div>`).join("")}</div>
+    <button class="btn ghost" id="ceAdd">+ New counter</button>`);
+  sheet.querySelectorAll(".ce-item").forEach(el=>el.addEventListener("click",()=>{
+    const c=state.counters.find(x=>x.id===el.dataset.id); openCounterForm(c);
+  }));
+  $("#ceAdd").addEventListener("click",()=>openCounterForm(null));
+}
+
+/* ----- Add / edit counter form ----- */
+let formColor = PALETTE[0];
+function openCounterForm(counter){
+  const editing = !!counter;
+  formColor = editing ? counter.color : PALETTE[state.counters.length % PALETTE.length];
+  openSheet(`
+    <h2>${editing?"Edit counter":"New counter"}</h2>
+    <p class="hint">${editing?"Changes keep all past history.":"It starts at zero today and resets automatically every day."}</p>
+    <div class="field">
+      <label>Name</label>
+      <input type="text" id="fName" placeholder="e.g. Snus" value="${editing?esc(counter.name):""}">
+    </div>
+    <div class="field">
+      <label>Label (optional)</label>
+      <input type="text" id="fTag" placeholder="e.g. strength 3" value="${editing&&counter.tag?esc(counter.tag):""}">
+    </div>
+    <div class="field">
+      <label>Nicotine per unit in mg (optional — enables the dose curve)</label>
+      <input type="number" id="fMg" inputmode="decimal" step="0.1" min="0" placeholder="e.g. 12" value="${editing&&counter.mg?counter.mg:""}">
+    </div>
+    <div class="field">
+      <label>Colour</label>
+      <div class="swatches" id="fSwatches">
+        ${PALETTE.map(c=>`<span class="swatch" data-c="${c}" style="background:${c}" aria-selected="${c===formColor}"></span>`).join("")}
+      </div>
+    </div>
+    <button class="btn primary" id="fSave">${editing?"Save changes":"Add counter"}</button>
+    ${editing?`<button class="btn danger" id="fDelete">Delete counter</button>`:""}
+  `);
+  sheet.querySelectorAll(".swatch").forEach(s=>s.addEventListener("click",()=>{
+    formColor=s.dataset.c;
+    sheet.querySelectorAll(".swatch").forEach(x=>x.setAttribute("aria-selected", x===s));
+  }));
+  $("#fSave").addEventListener("click",()=>{
+    const name=$("#fName").value.trim();
+    if(!name){ $("#fName").focus(); return; }
+    const tag=$("#fTag").value.trim();
+    const mgRaw=$("#fMg").value.trim();
+    const mg = mgRaw==="" ? null : Math.max(0, parseFloat(mgRaw)||0);
+    if(editing){
+      counter.name=name; counter.tag=tag; counter.mg=mg; counter.color=formColor;
+    } else {
+      state.counters.push({id:uid(), name, tag, mg, color:formColor});
+    }
+    save(); closeSheet(); renderToday(); if(currentView==="trend") renderTrend();
+    toast(editing?"Saved":"Counter added");
+  });
+  const del=$("#fDelete");
+  if(del) del.addEventListener("click",()=>{
+    openSheet(`
+      <h2>Delete “${esc(counter.name)}”?</h2>
+      <p class="hint">This removes the counter and its history from every day. This can’t be undone.</p>
+      <button class="btn danger" id="delYes">Delete permanently</button>
+      <button class="btn ghost" id="delNo">Keep it</button>`);
+    $("#delNo").addEventListener("click", closeSheet);
+    $("#delYes").addEventListener("click",()=>{
+      state.counters=state.counters.filter(c=>c.id!==counter.id);
+      for(const k in state.logs){ if(state.logs[k]) delete state.logs[k][counter.id]; }
+      save(); closeSheet(); renderToday(); if(currentView==="trend") renderTrend();
+      toast("Counter deleted");
+    });
+  });
+  setTimeout(()=>{ if(!editing) $("#fName").focus(); }, 250);
+}
+
+/* ============ Export / import ============ */
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=`tally-backup-${today()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast("Backup downloaded");
+}
+$("#importInput").addEventListener("change", e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const data=JSON.parse(r.result);
+      if(!data.counters||!data.logs) throw new Error("bad file");
+      openSheet(`
+        <h2>Restore this backup?</h2>
+        <p class="hint">It replaces everything currently in the app with the backup's ${data.counters.length} counters and ${Object.keys(data.logs).length} logged days.</p>
+        <button class="btn primary" id="impYes">Restore</button>
+        <button class="btn ghost" id="impNo">Cancel</button>`);
+      $("#impNo").addEventListener("click", closeSheet);
+      $("#impYes").addEventListener("click",()=>{
+        state=data; state.settings=Object.assign({range:14,metric:"count",perProduct:false},state.settings||{});
+        save(); closeSheet(); renderDate(); renderToday(); setView("today"); toast("Backup restored");
+      });
+    }catch(err){ toast("That file isn't a valid backup"); }
+    e.target.value="";
+  };
+  r.readAsText(f);
+});
+
+/* ============ Utils ============ */
+function esc(s){ return String(s).replace(/[&<>"]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m])); }
+let toastT;
+function toast(msg){
+  const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1800);
+}
+
+/* roll to a new day if the app was left open past midnight */
+let lastDay = today();
+setInterval(()=>{
+  if(today()!==lastDay){ lastDay=today(); renderDate(); renderToday(); if(currentView==="trend") renderTrend(); }
+}, 30000);
+document.addEventListener("visibilitychange", ()=>{
+  if(!document.hidden && today()!==lastDay){ lastDay=today(); renderDate(); renderToday(); if(currentView==="trend") renderTrend(); }
+});
+
+/* ============ Boot ============ */
+renderDate();
+renderToday();
+segSelect("#rangeSeg", document.querySelector(`#rangeSeg [data-range="${state.settings.range}"]`)||document.querySelector("#rangeSeg button"));
+segSelect("#metricSeg", document.querySelector(`#metricSeg [data-metric="${state.settings.metric}"]`));
+$("#perToggle").checked = state.settings.perProduct;
+</script>
+</body>
+</html>
